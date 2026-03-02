@@ -3,119 +3,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blue-Fi Pro - Game & 3D Radio Bridge</title>
+    <title>Blue-Fi</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; }
-        .rtc-gradient { background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%); }
-        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
-        #remote-frame { background: white; width: 100%; height: 100%; border: none; border-radius: 12px; }
-        #video-preview { width: 100%; height: 100%; object-fit: cover; border-radius: 20px; background: #1e293b; }
-        .scanner-container { position: relative; width: 280px; height: 280px; overflow: hidden; border-radius: 24px; border: 4px solid #6366f1; }
-        .scanner-line { position: absolute; width: 100%; height: 2px; background: #6366f1; top: 0; animation: scan 2s infinite linear; box-shadow: 0 0 15px #6366f1; }
+        body { font-family: 'Inter', sans-serif; background-color: #020617; color: #f8fafc; }
+        .rtc-gradient { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); }
+        .glass { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+        #remote-frame { background: white; width: 100%; height: 100%; border: none; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
+        #video-preview { width: 100%; height: 100%; object-fit: cover; border-radius: 24px; }
+        .scanner-container { position: relative; width: 300px; height: 300px; overflow: hidden; border-radius: 32px; border: 4px solid #6366f1; background: #000; }
+        .scanner-line { position: absolute; width: 100%; height: 3px; background: #6366f1; top: 0; animation: scan 2s infinite linear; box-shadow: 0 0 20px #6366f1; z-index: 10; }
         @keyframes scan { 0% { top: 0; } 100% { top: 100%; } }
-        .selfie-preview { width: 160px; height: 120px; border-radius: 16px; border: 2px solid #6366f1; object-fit: cover; background: #1e293b; transform: scaleX(-1); }
+        .dot-grid { background-image: radial-gradient(#1e293b 1px, transparent 1px); background-size: 20px 20px; }
+        .progress-bar { height: 2px; background: #6366f1; width: 0%; transition: width 0.1s linear; }
     </style>
 </head>
-<body class="min-h-screen flex flex-col overflow-hidden">
+<body class="min-h-screen flex flex-col overflow-hidden dot-grid">
 
+    <!-- Header -->
     <header class="h-16 flex items-center justify-between px-6 glass sticky top-0 z-50">
-        <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rtc-gradient rounded-lg flex items-center justify-center text-white shadow-lg">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h3m-3 3h3m7 4h2M5 17h2m1.32-4.17L4.41 12l2.91-1.83m.83 4.16L12 12l-3.85-2.33M5 7h2m6.06 2.33L15 7l-1.94 4.33M17 7h2"></path></svg>
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rtc-gradient rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
             </div>
-            <span class="font-extrabold tracking-tighter text-xl uppercase italic">Blue<span class="text-indigo-400">Fi</span> <span class="text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full not-italic tracking-normal">Free Internet</span></span>
+            <div class="flex flex-col">
+                <span class="font-extrabold tracking-tighter text-xl uppercase italic leading-none">Blue<span class="text-indigo-400">Fi</span></span>
+                <span class="text-[10px] text-indigo-400 font-bold tracking-widest uppercase">Vsites. Engineering</span>
+            </div>
         </div>
-        <div id="status-tag" class="text-[10px] font-bold bg-slate-800 px-3 py-1 rounded-full uppercase tracking-widest text-slate-400">
-            Offline
+        <div id="status-tag" class="text-[10px] font-bold bg-slate-800/50 border border-slate-700 px-3 py-1.5 rounded-full uppercase tracking-widest text-slate-400 transition-all">
+            Bridge Offline
         </div>
     </header>
 
-    <main class="flex-1 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+    <main class="flex-1 flex flex-col items-center justify-center p-4 relative">
         
-        <!-- Mode Selection -->
-        <div id="view-selection" class="max-w-md w-full space-y-6 text-center z-10">
-            <div class="mb-10">
-                <h1 class="text-5xl font-black text-white mb-3 tracking-tighter leading-none">Free <br><span class="text-indigo-500">Wi-Fi.</span></h1>
-                <p class="text-slate-400 text-lg">Gateway provides internet. Receiver displays content.</p>
+        <!-- MODE SELECTION -->
+        <div id="view-selection" class="max-w-md w-full space-y-8 text-center z-10">
+            <div class="space-y-2">
+                <h1 class="text-6xl font-black text-white tracking-tighter leading-none">Reliable <span class="text-indigo-500 italic">Radio.</span></h1>
+                <p class="text-slate-400 text-lg px-4">Vsites. Long-Range Tunneling protocol optimized for high-latency P2P environments.</p>
             </div>
             
-            <div class="grid gap-4">
-                <button onclick="startHandshake('gateway')" class="rtc-gradient text-white p-6 rounded-3xl shadow-2xl hover:scale-[1.02] transition-transform text-left">
-                    <div class="font-bold text-xl mb-1">Gateway Mode</div>
-                    <p class="text-indigo-100 text-sm opacity-80 leading-snug">Generate a QR code for the Receiver to scan.</p>
+            <div class="grid gap-5">
+                <button onclick="startHandshake('receiver')" class="rtc-gradient text-white p-6 rounded-[2rem] shadow-2xl shadow-indigo-500/30 hover:scale-[1.02] active:scale-95 transition-all text-left group">
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="font-black text-2xl">Receiver</div>
+                        <span class="text-[10px] bg-white/20 px-2 py-0.5 rounded uppercase">Zero-Data Side</span>
+                    </div>
+                    <p class="text-indigo-100 text-sm opacity-80 leading-snug">Deep-range reception for gaming & AI.</p>
                 </button>
 
-                <button onclick="startHandshake('receiver')" class="bg-slate-800 border border-slate-700 p-6 rounded-3xl hover:border-indigo-500 transition-all text-left">
-                    <div class="font-bold text-xl text-white mb-1">Receiver Mode</div>
-                    <p class="text-slate-400 text-sm leading-snug">Scan the Gateway's card to start browsing.</p>
+                <button onclick="startHandshake('gateway')" class="bg-slate-900 border border-slate-800 p-6 rounded-[2rem] hover:border-indigo-500/50 transition-all text-left group">
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="font-black text-2xl text-white">Gateway</div>
+                        <span class="text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded uppercase">Uplink Side</span>
+                    </div>
+                    <p class="text-slate-400 text-sm leading-snug">Broadcast internet access to the receiver.</p>
                 </button>
             </div>
 
-            <div class="pt-8 text-[10px] text-slate-600 font-bold uppercase tracking-[0.2em]">
-                Copyright © 2026 Blue-Fi™. All rights reserved. <br> "Vsites" and the Blue-Fi logo are trademarks of Vsites.
-            </div>
+            <p class="text-slate-600 text-[10px] uppercase tracking-[0.2em] font-bold">© 2024 Vsites. All Rights Reserved</p>
         </div>
 
-        <!-- Handshake View -->
-        <div id="view-handshake" class="hidden absolute inset-0 bg-slate-900 z-40 flex flex-col items-center justify-center p-6 space-y-6">
-            
-            <!-- QR Display -->
-            <div id="qr-display-container" class="hidden flex flex-col items-center space-y-4">
-                <h2 id="qr-title" class="text-xl font-bold text-indigo-400">Gateway Identity Card</h2>
-                <div class="relative flex flex-col items-center gap-6">
-                    <div class="p-4 bg-white rounded-3xl shadow-2xl">
-                        <canvas id="qr-canvas"></canvas>
-                    </div>
-                    <div id="gateway-preview-box" class="flex flex-col items-center gap-2">
-                        <div class="relative">
-                            <video id="local-preview-view" autoplay playsinline muted class="selfie-preview shadow-lg"></video>
-                            <div id="camera-loading" class="absolute inset-0 flex items-center justify-center bg-slate-800 rounded-16 pointer-events-none">
-                                <span class="text-[10px] text-slate-500 font-bold">READY...</span>
-                            </div>
-                        </div>
-                        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Gateway Preview</p>
-                    </div>
-                </div>
-                <p id="qr-instruction" class="text-slate-400 text-sm text-center max-w-xs">Receiver: Scan this code. Gateway: Keep this visible until scanned.</p>
+        <!-- HANDSHAKE SCREEN -->
+        <div id="view-handshake" class="hidden absolute inset-0 bg-slate-950 z-40 flex flex-col items-center justify-center p-6 space-y-8">
+            <div id="qr-display-container" class="hidden flex flex-col items-center space-y-6">
+                <div class="text-center space-y-2"><h2 class="text-2xl font-black text-white italic">Sync Interface</h2></div>
+                <div class="p-6 bg-white rounded-[2.5rem]"><canvas id="qr-canvas"></canvas></div>
+                <div id="receiver-hint" class="text-indigo-400 text-sm font-bold animate-pulse">Awaiting handshake...</div>
             </div>
 
-            <!-- QR Scanner -->
-            <div id="qr-scanner-container" class="hidden flex flex-col items-center space-y-4">
-                <h2 class="text-xl font-bold">Scanning Gateway Card</h2>
-                <div class="scanner-container shadow-2xl">
-                    <video id="video-preview" autoplay playsinline muted></video>
-                    <div class="scanner-line"></div>
-                </div>
-                <p class="text-indigo-400 text-xs animate-pulse font-bold uppercase tracking-widest">Point at the Gateway's screen</p>
+            <div id="qr-scanner-container" class="hidden flex flex-col items-center space-y-6">
+                <div class="scanner-container"><video id="video-preview" autoplay playsinline></video><div class="scanner-line"></div></div>
+                <p class="text-indigo-400 text-xs font-mono uppercase">Scanning for Peer...</p>
             </div>
-
-            <button onclick="location.reload()" class="text-slate-500 text-xs font-bold uppercase tracking-widest mt-10 hover:text-white transition-colors">Cancel Setup</button>
+            <button onclick="location.reload()" class="text-slate-500 text-xs font-bold uppercase tracking-widest">Abort</button>
         </div>
 
-        <!-- Browser Interface -->
+        <!-- BROWSER/GAME INTERFACE -->
         <div id="view-browser" class="hidden absolute inset-0 bg-slate-950 z-50 flex flex-col">
-            <div class="h-16 bg-slate-900 border-b border-slate-800 flex items-center px-4 gap-3">
-                <div class="flex-1 flex bg-slate-800 rounded-xl px-4 py-2 items-center gap-3 border border-slate-700">
-                    <input id="url-input" type="text" value="threejs.org" class="bg-transparent flex-1 outline-none text-sm font-semibold text-slate-200">
-                    <div id="loader" class="hidden animate-spin w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full"></div>
+            <div class="h-20 bg-slate-900 border-b border-slate-800 flex items-center px-4 gap-3">
+                <div class="flex-1 flex bg-slate-950 rounded-2xl px-5 py-3 items-center gap-4 border border-slate-800 transition-all">
+                    <div id="connection-pulse" class="w-2.5 h-2.5 rounded-full bg-indigo-500"></div>
+                    <input id="url-input" type="text" placeholder="Direct URL or Prompt..." class="bg-transparent flex-1 outline-none text-sm font-bold text-slate-200">
+                    <div id="loader" class="hidden animate-spin w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full"></div>
                 </div>
-                <button onclick="requestSite()" class="rtc-gradient text-white px-5 py-2 rounded-xl text-sm font-bold shadow-lg">Air Fetch</button>
+                <button onclick="requestSite()" class="rtc-gradient text-white h-12 px-6 rounded-2xl text-sm font-black shadow-lg">PUSH</button>
             </div>
             
-            <div class="flex-1 p-2 bg-slate-950">
-                <iframe id="remote-frame" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+            <div class="w-full bg-slate-800 h-[2px]"><div id="tx-progress" class="progress-bar"></div></div>
+
+            <div class="flex-1 p-3 bg-slate-950 flex flex-col relative">
+                <iframe id="remote-frame" sandbox="allow-scripts allow-same-origin allow-forms allow-modals"></iframe>
+                <div class="absolute top-6 right-6 flex flex-col gap-2">
+                    <div class="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 text-[10px] font-bold text-white flex items-center gap-2">
+                        <span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span> 
+                        RTT: <span id="rtt-val">--</span>ms
+                    </div>
+                </div>
             </div>
 
-            <div class="h-10 bg-slate-900 border-t border-slate-800 flex items-center px-4 justify-between">
-                <div id="connection-type" class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-2">
-                    <span class="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-ping"></span>
-                    Asset Bridge Active
-                </div>
-                <div id="stats" class="text-[10px] text-slate-500 font-mono italic">0.00 MB Tunneled</div>
+            <div class="h-10 bg-slate-900 border-t border-slate-800 flex items-center px-6 justify-between">
+                <div class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Vsites. Secure-Radio v4.2</div>
+                <div id="stats" class="text-[9px] text-slate-500 font-mono">ENCRYPTED END-TO-END</div>
             </div>
         </div>
 
@@ -125,60 +119,32 @@
         let isGateway = false;
         let pc, dc;
         let scanning = false;
-        let transferTotal = 0;
-        let activeStream = null;
+        let rtcConnected = false;
+        let incomingChunks = {};
 
         const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
-
-        // Optimization: Strips SDP to minimize QR code size for easier scanning
-        function compressSDP(sdp) {
-            return sdp.split('\r\n')
-                .filter(line => !line.startsWith('a=candidate:') && !line.startsWith('a=ice-options:'))
-                .join('\r\n');
-        }
+        const CHUNK_SIZE = 16384; // 16KB chunks for high reliability
 
         function startHandshake(mode) {
             isGateway = (mode === 'gateway');
             document.getElementById('view-selection').classList.add('hidden');
             document.getElementById('view-handshake').classList.remove('hidden');
-            
-            if (isGateway) { 
-                initGatewayOffer(); 
-            } else { 
-                initScanner(); 
+            if (isGateway) {
+                document.getElementById('qr-scanner-container').classList.remove('hidden');
+                initScanner();
+            } else {
+                document.getElementById('qr-display-container').classList.remove('hidden');
+                initReceiverOffer();
             }
         }
 
-        async function initGatewayOffer() {
+        async function initReceiverOffer() {
             pc = new RTCPeerConnection(rtcConfig);
-            dc = pc.createDataChannel("tunnel");
+            dc = pc.createDataChannel("v-tunnel", { ordered: true });
             setupDataChannel();
-
-            document.getElementById('qr-display-container').classList.remove('hidden');
-
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-                activeStream = stream;
-                const video = document.getElementById('local-preview-view');
-                video.srcObject = stream;
-                video.onloadedmetadata = () => {
-                    video.play();
-                    document.getElementById('camera-loading').classList.add('hidden');
-                };
-            } catch (err) { 
-                document.getElementById('camera-loading').innerHTML = '<span class="text-[10px] text-slate-500">NO CAM</span>';
-            }
-
             pc.onicecandidate = (e) => {
                 if (!e.candidate) {
-                    const desc = pc.localDescription;
-                    const compressed = { type: desc.type, sdp: compressSDP(desc.sdp) };
-                    const token = btoa(JSON.stringify(compressed));
-                    QRCode.toCanvas(document.getElementById('qr-canvas'), token, { 
-                        width: 280, 
-                        margin: 2,
-                        errorCorrectionLevel: 'L' 
-                    });
+                    QRCode.toCanvas(document.getElementById('qr-canvas'), btoa(JSON.stringify(pc.localDescription)), { width: 260, margin: 2 });
                 }
             };
             const offer = await pc.createOffer();
@@ -186,21 +152,13 @@
         }
 
         async function initScanner() {
+            const video = document.getElementById('video-preview');
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "environment" } 
-                });
-                activeStream = stream;
-                const video = document.getElementById('video-preview');
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
                 video.srcObject = stream;
-                video.onloadedmetadata = () => video.play();
-                document.getElementById('qr-scanner-container').classList.remove('hidden');
                 scanning = true;
                 requestAnimationFrame(scanLoop);
-            } catch (err) { 
-                alert("Please enable camera to scan the Gateway code."); 
-                location.reload();
-            }
+            } catch (err) { alert("Vsites Boot Error: Check Permissions"); }
         }
 
         function scanLoop() {
@@ -208,111 +166,85 @@
             const video = document.getElementById('video-preview');
             if (video.readyState === video.HAVE_ENOUGH_DATA) {
                 const canvas = document.createElement('canvas');
-                canvas.width = video.videoWidth; 
-                canvas.height = video.videoHeight;
+                canvas.width = video.videoWidth; canvas.height = video.videoHeight;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const code = jsQR(imageData.data, imageData.width, imageData.height);
-                
-                if (code) { 
-                    scanning = false; 
-                    handleScannedToken(code.data); 
-                    return; 
+                const code = jsQR(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
+                if (code) {
+                    scanning = false;
+                    video.srcObject.getTracks().forEach(t => t.stop());
+                    processToken(code.data);
+                    return;
                 }
             }
             requestAnimationFrame(scanLoop);
         }
 
-        async function handleScannedToken(token) {
-            try {
-                const data = JSON.parse(atob(token));
-                
-                if (data.type === 'offer') {
-                    if (!pc) pc = new RTCPeerConnection(rtcConfig);
-                    pc.ondatachannel = (e) => { dc = e.channel; setupDataChannel(); };
-                    
-                    await pc.setRemoteDescription(new RTCSessionDescription(data));
-                    const answer = await pc.createAnswer();
-                    await pc.setLocalDescription(answer);
-                    
-                    document.getElementById('qr-scanner-container').classList.add('hidden');
-                    document.getElementById('qr-display-container').classList.remove('hidden');
-                    document.getElementById('qr-title').textContent = "Receiver Reply Card";
-                    document.getElementById('qr-instruction').textContent = "Gateway: Scan this back to confirm connection.";
-                    
-                    pc.onicecandidate = (e) => {
-                        if (!e.candidate) {
-                            const desc = pc.localDescription;
-                            const compressed = { type: desc.type, sdp: compressSDP(desc.sdp) };
-                            const tokenResponse = btoa(JSON.stringify(compressed));
-                            QRCode.toCanvas(document.getElementById('qr-canvas'), tokenResponse, { 
-                                width: 280, 
-                                margin: 2,
-                                errorCorrectionLevel: 'L' 
-                            });
-                        }
-                    };
-
-                    const video = document.getElementById('local-preview-view');
-                    try {
-                        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-                        video.srcObject = stream;
-                        video.play();
-                        document.getElementById('camera-loading').classList.add('hidden');
-                    } catch(e) {}
-
-                } else if (data.type === 'answer') {
-                    await pc.setRemoteDescription(new RTCSessionDescription(data));
-                }
-            } catch(e) {
-                alert("Invalid QR code. Please try again.");
-                location.reload();
+        async function processToken(token) {
+            const data = JSON.parse(atob(token));
+            if (data.type === 'offer') {
+                pc = new RTCPeerConnection(rtcConfig);
+                pc.ondatachannel = (e) => { dc = e.channel; setupDataChannel(); };
+                await pc.setRemoteDescription(new RTCSessionDescription(data));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                document.getElementById('qr-scanner-container').classList.add('hidden');
+                document.getElementById('qr-display-container').classList.remove('hidden');
+                pc.onicecandidate = (e) => {
+                    if (!e.candidate) {
+                        QRCode.toCanvas(document.getElementById('qr-canvas'), btoa(JSON.stringify(pc.localDescription)), { width: 260, margin: 2 });
+                    }
+                };
+            } else if (data.type === 'answer') {
+                await pc.setRemoteDescription(new RTCSessionDescription(data));
             }
         }
 
-        window.onclick = () => { 
-            if (isGateway && pc?.signalingState === 'have-local-offer' && !scanning) { 
+        window.addEventListener('click', () => {
+            if (!isGateway && pc && pc.signalingState === 'have-local-offer' && !scanning && !rtcConnected) {
                 document.getElementById('qr-display-container').classList.add('hidden');
-                if (activeStream) activeStream.getTracks().forEach(t => t.stop());
+                document.getElementById('qr-scanner-container').classList.remove('hidden');
                 initScanner();
             }
-        };
+        });
+
+        // --- RELIABLE CHUNKED TRANSFER ENGINE ---
 
         function setupDataChannel() {
             dc.onopen = () => {
-                if (activeStream) activeStream.getTracks().forEach(track => track.stop());
-                document.getElementById('status-tag').textContent = "BRIDGE ACTIVE";
+                rtcConnected = true;
+                document.getElementById('status-tag').textContent = "VSITES LINK UP";
+                document.getElementById('status-tag').className = "text-[10px] font-bold bg-indigo-500/20 border border-indigo-500/50 px-3 py-1.5 rounded-full text-indigo-400";
                 document.getElementById('view-handshake').classList.add('hidden');
-                if (!isGateway) {
-                    document.getElementById('view-browser').classList.remove('hidden');
-                } else {
-                    document.getElementById('view-selection').innerHTML = `
-                        <div class='glass p-10 rounded-3xl text-center'>
-                            <div class="w-16 h-16 rtc-gradient rounded-2xl flex items-center justify-center text-white mx-auto mb-6 shadow-xl">
-                                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            </div>
-                            <h2 class='text-2xl font-bold mb-4'>Bridge Active</h2>
-                            <p class='text-slate-400'>Gateway is now proxying data to the Receiver.</p>
-                            <button onclick="location.reload()" class="mt-8 text-indigo-400 font-bold uppercase tracking-widest text-xs">Disconnect</button>
-                        </div>
-                    `;
-                    document.getElementById('view-selection').classList.remove('hidden');
-                }
+                document.getElementById('view-browser').classList.remove('hidden');
+                document.getElementById('connection-pulse').classList.add('animate-ping');
+                setInterval(() => { if (dc.readyState === "open") dc.send(JSON.stringify({ type: 'PING', ts: Date.now() })); }, 2000);
             };
-            dc.onmessage = (e) => {
+
+            dc.onmessage = async (e) => {
                 const msg = JSON.parse(e.data);
-                if (isGateway && msg.type === 'FETCH_REQ') { bundleAndSend(msg.url); }
-                else if (!isGateway && msg.type === 'SITE_BUNDLE') { renderBundle(msg.html, msg.url); }
+                
+                if (msg.type === 'PING') { if (!isGateway) dc.send(JSON.stringify({ type: 'PONG', ts: msg.ts })); }
+                else if (msg.type === 'PONG') { document.getElementById('rtt-val').textContent = Date.now() - msg.ts; }
+                else if (isGateway && msg.type === 'FETCH_REQ') { bundleAndSend(msg.url); }
+                else if (!isGateway && msg.type === 'CHUNK') { handleIncomingChunk(msg); }
             };
         }
 
-        async function fetchToB64(url) {
-            try {
-                const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
-                const blob = await res.blob();
-                return new Promise((r) => { const rd = new FileReader(); rd.onloadend = () => r(rd.result); rd.readAsDataURL(blob); });
-            } catch (e) { return null; }
+        function handleIncomingChunk(msg) {
+            if (!incomingChunks[msg.id]) incomingChunks[msg.id] = new Array(msg.total);
+            incomingChunks[msg.id][msg.index] = msg.data;
+            
+            const count = incomingChunks[msg.id].filter(x => x).length;
+            const progress = (count / msg.total) * 100;
+            document.getElementById('tx-progress').style.width = progress + '%';
+
+            if (count === msg.total) {
+                const fullHtml = incomingChunks[msg.id].join('');
+                renderBundle(fullHtml, msg.url);
+                delete incomingChunks[msg.id];
+                setTimeout(() => document.getElementById('tx-progress').style.width = '0%', 500);
+            }
         }
 
         async function bundleAndSend(url) {
@@ -320,72 +252,39 @@
             try {
                 const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
                 const json = await res.json();
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(json.contents, 'text/html');
-                const baseUrl = new URL(url);
+                const html = json.contents;
+                const transferId = Math.random().toString(36).substr(2, 9);
+                const totalChunks = Math.ceil(html.length / CHUNK_SIZE);
 
-                const assets = doc.querySelectorAll('img, source, video');
-                const p = Array.from(assets).map(async (a) => {
-                    const src = a.getAttribute('src') || a.getAttribute('srcset');
-                    if (src && !src.startsWith('data:')) {
-                        const b64 = await fetchToB64(new URL(src, baseUrl).href);
-                        if (b64) a.setAttribute('src', b64);
-                    }
-                });
-
-                const scripts = doc.querySelectorAll('script[src]');
-                const sp = Array.from(scripts).map(async (s) => {
-                    try {
-                        const sUrl = new URL(s.getAttribute('src'), baseUrl).href;
-                        const sRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(sUrl)}`);
-                        const sJson = await sRes.json();
-                        const ns = doc.createElement('script');
-                        ns.textContent = sJson.contents;
-                        s.replaceWith(ns);
-                    } catch(e) {}
-                });
-
-                await Promise.all([...p, ...sp]);
-
-                const script = doc.createElement('script');
-                script.textContent = `document.addEventListener('click', e => { 
-                    const a = e.target.closest('a'); 
-                    if (a?.href) { e.preventDefault(); window.parent.postMessage({ type: 'NAV_REQ', url: a.href }, '*'); }
-                });`;
-                doc.head.appendChild(script);
-
-                dc.send(JSON.stringify({ type: 'SITE_BUNDLE', html: doc.documentElement.outerHTML, url: url }));
-            } catch (e) { console.error(e); }
+                for (let i = 0; i < totalChunks; i++) {
+                    const chunk = html.substring(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+                    dc.send(JSON.stringify({
+                        type: 'CHUNK',
+                        id: transferId,
+                        index: i,
+                        total: totalChunks,
+                        data: chunk,
+                        url: url
+                    }));
+                }
+            } catch (e) { console.error("Vsites Proxy Fault"); }
         }
 
         function renderBundle(html, url) {
             const frame = document.getElementById('remote-frame');
-            const needsNet = /multiplayer|game|chess|ai|api|chat|socket|io/i.test(url) || /io$/.test(url);
-            if (needsNet) {
-                frame.removeAttribute('sandbox');
-                document.getElementById('connection-type').innerHTML = `<span class="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse"></span> HYBRID LIVE MODE`;
-            } else {
-                frame.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms');
-                document.getElementById('connection-type').innerHTML = `<span class="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-ping"></span> ASSET BRIDGE ACTIVE`;
-            }
-
             const blob = new Blob([html], { type: 'text/html' });
             frame.src = URL.createObjectURL(blob);
             document.getElementById('loader').classList.add('hidden');
             document.getElementById('url-input').value = url;
-            transferTotal += (html.length / 1024 / 1024);
-            document.getElementById('stats').textContent = `${transferTotal.toFixed(2)} MB Tunneled`;
         }
 
         function requestSite() {
-            const url = document.getElementById('url-input').value;
+            const val = document.getElementById('url-input').value;
+            if (!val) return;
             document.getElementById('loader').classList.remove('hidden');
-            dc.send(JSON.stringify({ type: 'FETCH_REQ', url: url }));
+            dc.send(JSON.stringify({ type: 'FETCH_REQ', url: val }));
         }
 
-        window.addEventListener('message', e => { if (e.data.type === 'NAV_REQ') { 
-            document.getElementById('url-input').value = e.data.url; requestSite(); 
-        }});
     </script>
 </body>
 </html>
