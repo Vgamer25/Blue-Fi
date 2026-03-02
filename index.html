@@ -54,12 +54,16 @@
                     <p class="text-slate-400 text-sm leading-snug">Scan the Gateway's card to start browsing.</p>
                 </button>
             </div>
+
+            <div class="pt-8 text-[10px] text-slate-600 font-bold uppercase tracking-[0.2em]">
+                Copyright © 2026 Blue-Fi™. All rights reserved. <br> "Vsites" and the Blue-Fi logo are trademarks of Vsites.
+            </div>
         </div>
 
         <!-- Handshake View -->
         <div id="view-handshake" class="hidden absolute inset-0 bg-slate-900 z-40 flex flex-col items-center justify-center p-6 space-y-6">
             
-            <!-- QR Display (Gateway starts here) -->
+            <!-- QR Display -->
             <div id="qr-display-container" class="hidden flex flex-col items-center space-y-4">
                 <h2 id="qr-title" class="text-xl font-bold text-indigo-400">Gateway Identity Card</h2>
                 <div class="relative flex flex-col items-center gap-6">
@@ -79,7 +83,7 @@
                 <p id="qr-instruction" class="text-slate-400 text-sm text-center max-w-xs">Receiver: Scan this code. Gateway: Keep this visible until scanned.</p>
             </div>
 
-            <!-- QR Scanner (Receiver starts here) -->
+            <!-- QR Scanner -->
             <div id="qr-scanner-container" class="hidden flex flex-col items-center space-y-4">
                 <h2 class="text-xl font-bold">Scanning Gateway Card</h2>
                 <div class="scanner-container shadow-2xl">
@@ -92,7 +96,7 @@
             <button onclick="location.reload()" class="text-slate-500 text-xs font-bold uppercase tracking-widest mt-10 hover:text-white transition-colors">Cancel Setup</button>
         </div>
 
-        <!-- Browser Interface (Visible on Receiver after connection) -->
+        <!-- Browser Interface -->
         <div id="view-browser" class="hidden absolute inset-0 bg-slate-950 z-50 flex flex-col">
             <div class="h-16 bg-slate-900 border-b border-slate-800 flex items-center px-4 gap-3">
                 <div class="flex-1 flex bg-slate-800 rounded-xl px-4 py-2 items-center gap-3 border border-slate-700">
@@ -125,6 +129,13 @@
         let activeStream = null;
 
         const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+        // Optimization: Strips SDP to minimize QR code size for easier scanning
+        function compressSDP(sdp) {
+            return sdp.split('\r\n')
+                .filter(line => !line.startsWith('a=candidate:') && !line.startsWith('a=ice-options:'))
+                .join('\r\n');
+        }
 
         function startHandshake(mode) {
             isGateway = (mode === 'gateway');
@@ -160,8 +171,14 @@
 
             pc.onicecandidate = (e) => {
                 if (!e.candidate) {
-                    const token = btoa(JSON.stringify(pc.localDescription));
-                    QRCode.toCanvas(document.getElementById('qr-canvas'), token, { width: 240, margin: 2 });
+                    const desc = pc.localDescription;
+                    const compressed = { type: desc.type, sdp: compressSDP(desc.sdp) };
+                    const token = btoa(JSON.stringify(compressed));
+                    QRCode.toCanvas(document.getElementById('qr-canvas'), token, { 
+                        width: 280, 
+                        margin: 2,
+                        errorCorrectionLevel: 'L' 
+                    });
                 }
             };
             const offer = await pc.createOffer();
@@ -208,42 +225,52 @@
         }
 
         async function handleScannedToken(token) {
-            const data = JSON.parse(atob(token));
-            
-            if (data.type === 'offer') {
-                // Receiver side scanned Gateway offer
-                if (!pc) pc = new RTCPeerConnection(rtcConfig);
-                pc.ondatachannel = (e) => { dc = e.channel; setupDataChannel(); };
+            try {
+                const data = JSON.parse(atob(token));
                 
-                await pc.setRemoteDescription(new RTCSessionDescription(data));
-                const answer = await pc.createAnswer();
-                await pc.setLocalDescription(answer);
-                
-                // Show Receiver's Answer QR back to Gateway
-                document.getElementById('qr-scanner-container').classList.add('hidden');
-                document.getElementById('qr-display-container').classList.remove('hidden');
-                document.getElementById('qr-title').textContent = "Receiver Reply Card";
-                document.getElementById('qr-instruction').textContent = "Gateway: Scan this back to confirm connection.";
-                
-                const tokenResponse = btoa(JSON.stringify(pc.localDescription));
-                QRCode.toCanvas(document.getElementById('qr-canvas'), tokenResponse, { width: 240, margin: 2 });
-                
-                // Also show a small preview for the receiver
-                const video = document.getElementById('local-preview-view');
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-                    video.srcObject = stream;
-                    video.play();
-                    document.getElementById('camera-loading').classList.add('hidden');
-                } catch(e) {}
+                if (data.type === 'offer') {
+                    if (!pc) pc = new RTCPeerConnection(rtcConfig);
+                    pc.ondatachannel = (e) => { dc = e.channel; setupDataChannel(); };
+                    
+                    await pc.setRemoteDescription(new RTCSessionDescription(data));
+                    const answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+                    
+                    document.getElementById('qr-scanner-container').classList.add('hidden');
+                    document.getElementById('qr-display-container').classList.remove('hidden');
+                    document.getElementById('qr-title').textContent = "Receiver Reply Card";
+                    document.getElementById('qr-instruction').textContent = "Gateway: Scan this back to confirm connection.";
+                    
+                    pc.onicecandidate = (e) => {
+                        if (!e.candidate) {
+                            const desc = pc.localDescription;
+                            const compressed = { type: desc.type, sdp: compressSDP(desc.sdp) };
+                            const tokenResponse = btoa(JSON.stringify(compressed));
+                            QRCode.toCanvas(document.getElementById('qr-canvas'), tokenResponse, { 
+                                width: 280, 
+                                margin: 2,
+                                errorCorrectionLevel: 'L' 
+                            });
+                        }
+                    };
 
-            } else if (data.type === 'answer') {
-                // Gateway side scanned Receiver answer
-                await pc.setRemoteDescription(new RTCSessionDescription(data));
+                    const video = document.getElementById('local-preview-view');
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                        video.srcObject = stream;
+                        video.play();
+                        document.getElementById('camera-loading').classList.add('hidden');
+                    } catch(e) {}
+
+                } else if (data.type === 'answer') {
+                    await pc.setRemoteDescription(new RTCSessionDescription(data));
+                }
+            } catch(e) {
+                alert("Invalid QR code. Please try again.");
+                location.reload();
             }
         }
 
-        // Gateway needs to be able to scan back the receiver's answer
         window.onclick = () => { 
             if (isGateway && pc?.signalingState === 'have-local-offer' && !scanning) { 
                 document.getElementById('qr-display-container').classList.add('hidden');
@@ -257,15 +284,17 @@
                 if (activeStream) activeStream.getTracks().forEach(track => track.stop());
                 document.getElementById('status-tag').textContent = "BRIDGE ACTIVE";
                 document.getElementById('view-handshake').classList.add('hidden');
-                // Gateway stays in bridge mode (no browser UI needed locally usually)
                 if (!isGateway) {
                     document.getElementById('view-browser').classList.remove('hidden');
                 } else {
                     document.getElementById('view-selection').innerHTML = `
                         <div class='glass p-10 rounded-3xl text-center'>
+                            <div class="w-16 h-16 rtc-gradient rounded-2xl flex items-center justify-center text-white mx-auto mb-6 shadow-xl">
+                                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </div>
                             <h2 class='text-2xl font-bold mb-4'>Bridge Active</h2>
                             <p class='text-slate-400'>Gateway is now proxying data to the Receiver.</p>
-                            <button onclick="location.reload()" class="mt-6 text-indigo-400 font-bold uppercase tracking-widest text-xs">Disconnect</button>
+                            <button onclick="location.reload()" class="mt-8 text-indigo-400 font-bold uppercase tracking-widest text-xs">Disconnect</button>
                         </div>
                     `;
                     document.getElementById('view-selection').classList.remove('hidden');
@@ -360,4 +389,3 @@
     </script>
 </body>
 </html>
-Copyright © 2026 Blue-Fi™. All rights reserved. "Vsites" and the Blue-Fi logo are trademarks of Vsites.
