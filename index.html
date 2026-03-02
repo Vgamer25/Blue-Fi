@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blue-Fi Pro - Game & 3D Radio Bridge</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; }
+        .rtc-gradient { background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%); }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        #remote-frame { background: white; width: 100%; height: 100%; border: none; border-radius: 12px; }
+        #video-preview { width: 100%; height: 100%; object-fit: cover; border-radius: 20px; background: #1e293b; }
+        .scanner-container { position: relative; width: 280px; height: 280px; overflow: hidden; border-radius: 24px; border: 4px solid #6366f1; }
+        .scanner-line { position: absolute; width: 100%; height: 2px; background: #6366f1; top: 0; animation: scan 2s infinite linear; box-shadow: 0 0 15px #6366f1; }
+        @keyframes scan { 0% { top: 0; } 100% { top: 100%; } }
+        .selfie-preview { width: 160px; height: 120px; border-radius: 16px; border: 2px solid #6366f1; object-fit: cover; background: #1e293b; transform: scaleX(-1); }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col overflow-hidden">
+
+    <header class="h-16 flex items-center justify-between px-6 glass sticky top-0 z-50">
+        <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rtc-gradient rounded-lg flex items-center justify-center text-white shadow-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h3m-3 3h3m7 4h2M5 17h2m1.32-4.17L4.41 12l2.91-1.83m.83 4.16L12 12l-3.85-2.33M5 7h2m6.06 2.33L15 7l-1.94 4.33M17 7h2"></path></svg>
+            </div>
+            <span class="font-extrabold tracking-tighter text-xl uppercase italic">Blue<span class="text-indigo-400">Fi</span> <span class="text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full not-italic tracking-normal">GAMES-RADIO</span></span>
+        </div>
+        <div id="status-tag" class="text-[10px] font-bold bg-slate-800 px-3 py-1 rounded-full uppercase tracking-widest text-slate-400">
+            Bridge Offline
+        </div>
+    </header>
+
+    <main class="flex-1 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+        
+        <!-- Mode Selection -->
+        <div id="view-selection" class="max-w-md w-full space-y-6 text-center z-10">
+            <div class="mb-10">
+                <h1 class="text-5xl font-black text-white mb-3 tracking-tighter leading-none">P2P <br><span class="text-indigo-500">Gaming.</span></h1>
+                <p class="text-slate-400 text-lg">Gateway provides internet. Receiver displays content. Connected via WebRTC.</p>
+            </div>
+            
+            <div class="grid gap-4">
+                <button onclick="startHandshake('gateway')" class="rtc-gradient text-white p-6 rounded-3xl shadow-2xl hover:scale-[1.02] transition-transform text-left">
+                    <div class="font-bold text-xl mb-1">Gateway Mode</div>
+                    <p class="text-indigo-100 text-sm opacity-80 leading-snug">Generate a QR code for the Receiver to scan.</p>
+                </button>
+
+                <button onclick="startHandshake('receiver')" class="bg-slate-800 border border-slate-700 p-6 rounded-3xl hover:border-indigo-500 transition-all text-left">
+                    <div class="font-bold text-xl text-white mb-1">Receiver Mode</div>
+                    <p class="text-slate-400 text-sm leading-snug">Scan the Gateway's card to start browsing.</p>
+                </button>
+            </div>
+        </div>
+
+        <!-- Handshake View -->
+        <div id="view-handshake" class="hidden absolute inset-0 bg-slate-900 z-40 flex flex-col items-center justify-center p-6 space-y-6">
+            
+            <!-- QR Display (Gateway starts here) -->
+            <div id="qr-display-container" class="hidden flex flex-col items-center space-y-4">
+                <h2 id="qr-title" class="text-xl font-bold text-indigo-400">Gateway Identity Card</h2>
+                <div class="relative flex flex-col items-center gap-6">
+                    <div class="p-4 bg-white rounded-3xl shadow-2xl">
+                        <canvas id="qr-canvas"></canvas>
+                    </div>
+                    <div id="gateway-preview-box" class="flex flex-col items-center gap-2">
+                        <div class="relative">
+                            <video id="local-preview-view" autoplay playsinline muted class="selfie-preview shadow-lg"></video>
+                            <div id="camera-loading" class="absolute inset-0 flex items-center justify-center bg-slate-800 rounded-16 pointer-events-none">
+                                <span class="text-[10px] text-slate-500 font-bold">READY...</span>
+                            </div>
+                        </div>
+                        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Gateway Preview</p>
+                    </div>
+                </div>
+                <p id="qr-instruction" class="text-slate-400 text-sm text-center max-w-xs">Receiver: Scan this code. Gateway: Keep this visible until scanned.</p>
+            </div>
+
+            <!-- QR Scanner (Receiver starts here) -->
+            <div id="qr-scanner-container" class="hidden flex flex-col items-center space-y-4">
+                <h2 class="text-xl font-bold">Scanning Gateway Card</h2>
+                <div class="scanner-container shadow-2xl">
+                    <video id="video-preview" autoplay playsinline muted></video>
+                    <div class="scanner-line"></div>
+                </div>
+                <p class="text-indigo-400 text-xs animate-pulse font-bold uppercase tracking-widest">Point at the Gateway's screen</p>
+            </div>
+
+            <button onclick="location.reload()" class="text-slate-500 text-xs font-bold uppercase tracking-widest mt-10 hover:text-white transition-colors">Cancel Setup</button>
+        </div>
+
+        <!-- Browser Interface (Visible on Receiver after connection) -->
+        <div id="view-browser" class="hidden absolute inset-0 bg-slate-950 z-50 flex flex-col">
+            <div class="h-16 bg-slate-900 border-b border-slate-800 flex items-center px-4 gap-3">
+                <div class="flex-1 flex bg-slate-800 rounded-xl px-4 py-2 items-center gap-3 border border-slate-700">
+                    <input id="url-input" type="text" value="threejs.org" class="bg-transparent flex-1 outline-none text-sm font-semibold text-slate-200">
+                    <div id="loader" class="hidden animate-spin w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full"></div>
+                </div>
+                <button onclick="requestSite()" class="rtc-gradient text-white px-5 py-2 rounded-xl text-sm font-bold shadow-lg">Air Fetch</button>
+            </div>
+            
+            <div class="flex-1 p-2 bg-slate-950">
+                <iframe id="remote-frame" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+            </div>
+
+            <div class="h-10 bg-slate-900 border-t border-slate-800 flex items-center px-4 justify-between">
+                <div id="connection-type" class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-ping"></span>
+                    Asset Bridge Active
+                </div>
+                <div id="stats" class="text-[10px] text-slate-500 font-mono italic">0.00 MB Tunneled</div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        let isGateway = false;
+        let pc, dc;
+        let scanning = false;
+        let transferTotal = 0;
+        let activeStream = null;
+
+        const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+        function startHandshake(mode) {
+            isGateway = (mode === 'gateway');
+            document.getElementById('view-selection').classList.add('hidden');
+            document.getElementById('view-handshake').classList.remove('hidden');
+            
+            if (isGateway) { 
+                initGatewayOffer(); 
+            } else { 
+                initScanner(); 
+            }
+        }
+
+        async function initGatewayOffer() {
+            pc = new RTCPeerConnection(rtcConfig);
+            dc = pc.createDataChannel("tunnel");
+            setupDataChannel();
+
+            document.getElementById('qr-display-container').classList.remove('hidden');
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                activeStream = stream;
+                const video = document.getElementById('local-preview-view');
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    video.play();
+                    document.getElementById('camera-loading').classList.add('hidden');
+                };
+            } catch (err) { 
+                document.getElementById('camera-loading').innerHTML = '<span class="text-[10px] text-slate-500">NO CAM</span>';
+            }
+
+            pc.onicecandidate = (e) => {
+                if (!e.candidate) {
+                    const token = btoa(JSON.stringify(pc.localDescription));
+                    QRCode.toCanvas(document.getElementById('qr-canvas'), token, { width: 240, margin: 2 });
+                }
+            };
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+        }
+
+        async function initScanner() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment" } 
+                });
+                activeStream = stream;
+                const video = document.getElementById('video-preview');
+                video.srcObject = stream;
+                video.onloadedmetadata = () => video.play();
+                document.getElementById('qr-scanner-container').classList.remove('hidden');
+                scanning = true;
+                requestAnimationFrame(scanLoop);
+            } catch (err) { 
+                alert("Please enable camera to scan the Gateway code."); 
+                location.reload();
+            }
+        }
+
+        function scanLoop() {
+            if (!scanning) return;
+            const video = document.getElementById('video-preview');
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth; 
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
+                
+                if (code) { 
+                    scanning = false; 
+                    handleScannedToken(code.data); 
+                    return; 
+                }
+            }
+            requestAnimationFrame(scanLoop);
+        }
+
+        async function handleScannedToken(token) {
+            const data = JSON.parse(atob(token));
+            
+            if (data.type === 'offer') {
+                // Receiver side scanned Gateway offer
+                if (!pc) pc = new RTCPeerConnection(rtcConfig);
+                pc.ondatachannel = (e) => { dc = e.channel; setupDataChannel(); };
+                
+                await pc.setRemoteDescription(new RTCSessionDescription(data));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                
+                // Show Receiver's Answer QR back to Gateway
+                document.getElementById('qr-scanner-container').classList.add('hidden');
+                document.getElementById('qr-display-container').classList.remove('hidden');
+                document.getElementById('qr-title').textContent = "Receiver Reply Card";
+                document.getElementById('qr-instruction').textContent = "Gateway: Scan this back to confirm connection.";
+                
+                const tokenResponse = btoa(JSON.stringify(pc.localDescription));
+                QRCode.toCanvas(document.getElementById('qr-canvas'), tokenResponse, { width: 240, margin: 2 });
+                
+                // Also show a small preview for the receiver
+                const video = document.getElementById('local-preview-view');
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                    video.srcObject = stream;
+                    video.play();
+                    document.getElementById('camera-loading').classList.add('hidden');
+                } catch(e) {}
+
+            } else if (data.type === 'answer') {
+                // Gateway side scanned Receiver answer
+                await pc.setRemoteDescription(new RTCSessionDescription(data));
+            }
+        }
+
+        // Gateway needs to be able to scan back the receiver's answer
+        window.onclick = () => { 
+            if (isGateway && pc?.signalingState === 'have-local-offer' && !scanning) { 
+                document.getElementById('qr-display-container').classList.add('hidden');
+                if (activeStream) activeStream.getTracks().forEach(t => t.stop());
+                initScanner();
+            }
+        };
+
+        function setupDataChannel() {
+            dc.onopen = () => {
+                if (activeStream) activeStream.getTracks().forEach(track => track.stop());
+                document.getElementById('status-tag').textContent = "BRIDGE ACTIVE";
+                document.getElementById('view-handshake').classList.add('hidden');
+                // Gateway stays in bridge mode (no browser UI needed locally usually)
+                if (!isGateway) {
+                    document.getElementById('view-browser').classList.remove('hidden');
+                } else {
+                    document.getElementById('view-selection').innerHTML = `
+                        <div class='glass p-10 rounded-3xl text-center'>
+                            <h2 class='text-2xl font-bold mb-4'>Bridge Active</h2>
+                            <p class='text-slate-400'>Gateway is now proxying data to the Receiver.</p>
+                            <button onclick="location.reload()" class="mt-6 text-indigo-400 font-bold uppercase tracking-widest text-xs">Disconnect</button>
+                        </div>
+                    `;
+                    document.getElementById('view-selection').classList.remove('hidden');
+                }
+            };
+            dc.onmessage = (e) => {
+                const msg = JSON.parse(e.data);
+                if (isGateway && msg.type === 'FETCH_REQ') { bundleAndSend(msg.url); }
+                else if (!isGateway && msg.type === 'SITE_BUNDLE') { renderBundle(msg.html, msg.url); }
+            };
+        }
+
+        async function fetchToB64(url) {
+            try {
+                const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
+                const blob = await res.blob();
+                return new Promise((r) => { const rd = new FileReader(); rd.onloadend = () => r(rd.result); rd.readAsDataURL(blob); });
+            } catch (e) { return null; }
+        }
+
+        async function bundleAndSend(url) {
+            if (!url.startsWith('http')) url = 'https://' + url;
+            try {
+                const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+                const json = await res.json();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(json.contents, 'text/html');
+                const baseUrl = new URL(url);
+
+                const assets = doc.querySelectorAll('img, source, video');
+                const p = Array.from(assets).map(async (a) => {
+                    const src = a.getAttribute('src') || a.getAttribute('srcset');
+                    if (src && !src.startsWith('data:')) {
+                        const b64 = await fetchToB64(new URL(src, baseUrl).href);
+                        if (b64) a.setAttribute('src', b64);
+                    }
+                });
+
+                const scripts = doc.querySelectorAll('script[src]');
+                const sp = Array.from(scripts).map(async (s) => {
+                    try {
+                        const sUrl = new URL(s.getAttribute('src'), baseUrl).href;
+                        const sRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(sUrl)}`);
+                        const sJson = await sRes.json();
+                        const ns = doc.createElement('script');
+                        ns.textContent = sJson.contents;
+                        s.replaceWith(ns);
+                    } catch(e) {}
+                });
+
+                await Promise.all([...p, ...sp]);
+
+                const script = doc.createElement('script');
+                script.textContent = `document.addEventListener('click', e => { 
+                    const a = e.target.closest('a'); 
+                    if (a?.href) { e.preventDefault(); window.parent.postMessage({ type: 'NAV_REQ', url: a.href }, '*'); }
+                });`;
+                doc.head.appendChild(script);
+
+                dc.send(JSON.stringify({ type: 'SITE_BUNDLE', html: doc.documentElement.outerHTML, url: url }));
+            } catch (e) { console.error(e); }
+        }
+
+        function renderBundle(html, url) {
+            const frame = document.getElementById('remote-frame');
+            const needsNet = /multiplayer|game|chess|ai|api|chat|socket|io/i.test(url) || /io$/.test(url);
+            if (needsNet) {
+                frame.removeAttribute('sandbox');
+                document.getElementById('connection-type').innerHTML = `<span class="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse"></span> HYBRID LIVE MODE`;
+            } else {
+                frame.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms');
+                document.getElementById('connection-type').innerHTML = `<span class="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-ping"></span> ASSET BRIDGE ACTIVE`;
+            }
+
+            const blob = new Blob([html], { type: 'text/html' });
+            frame.src = URL.createObjectURL(blob);
+            document.getElementById('loader').classList.add('hidden');
+            document.getElementById('url-input').value = url;
+            transferTotal += (html.length / 1024 / 1024);
+            document.getElementById('stats').textContent = `${transferTotal.toFixed(2)} MB Tunneled`;
+        }
+
+        function requestSite() {
+            const url = document.getElementById('url-input').value;
+            document.getElementById('loader').classList.remove('hidden');
+            dc.send(JSON.stringify({ type: 'FETCH_REQ', url: url }));
+        }
+
+        window.addEventListener('message', e => { if (e.data.type === 'NAV_REQ') { 
+            document.getElementById('url-input').value = e.data.url; requestSite(); 
+        }});
+    </script>
+</body>
+</html>
+Copyright © 2026 Blue-Fi™. All rights reserved. "Vsites" and the Blue-Fi logo are trademarks of Vsites.
